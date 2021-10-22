@@ -1,0 +1,440 @@
+---
+title: "Step-by-step"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+# Introduction
+## Documents
+alltogether_modified.prt
+alltogether_modified.gen.fasta.gen
+alltogether_modified.lst.txt
+FixedMutations_OverTime.txt
+FixedMutations_over_time.pdf
+FixedMutation_over_time_Mado.pdf
+allSNPs_w_gene_position.tsv
+
+Github: https://github.com/banklab/sabrinas-microcommunities
+
+
+## Tasks
+Step-by-step: The plot shows the fixed mutations over time and the list of those 41 SNPs with their coordinates and the specie/replicon (FixedMutations_OverTime.txt)
+
+Step 1) Based on the file alltogether_modified.lst.txt (with Genes coordinates and their function) --> Find which genes the SNPs are belonging to ?
+
+Step 2) Based on the gene fasta sequence (alltogether_modified.gen.fasta): BLAST the sequence of hypothetical proteins to see if a similar sequence is present in other microbes and try to infer a function by sequence similarity (and % of sequence similarity)
+
+Step 3) Based on the Protein sequence (alltogether_modified.prt): define the consequence of the SNP: synonymous or nonsynonymous ? Calculate dN/dS (if applicable, because few SNPs but the code can be ready for more data)
+
+
+# General Setup 
+## Import Data **run this**
+In file "alltogether_modified.lst" mannually (in VSC) find "|" and replace with "space", so that import is a data.frame, add several spaces at the end of the first row so that there is enough space for all words of the name of the protein (because the Proteins do not have the same nr. of words in the name)
+
+```{r}
+#set working directory to Source file location
+setwd("C:/Users/sabri/OneDrive/Desktop/HS21/Bachelor thesis/First Data") 
+
+#load packages
+library(dplyr)
+library(data.table)
+
+#import data files and have a general look at them
+fixed <- read.delim(file = "FixedMutations_OverTime.txt")
+str(fixed)
+
+all <- read.delim(file = "alltogether_modified.lst.txt", sep = " " , header = FALSE)
+str(all)
+```
+
+
+## Tidy up data
+### Bullky
+
+```{r}
+#look for duplicates and delete them
+all <- distinct(all)
+fixed <- distinct(fixed)
+
+#Clean up data frame
+all$V1 <- NULL #delete because unnecessary
+all$V4 <- NULL #delete because unnecessary
+all$V5 <- NULL #delete because unnecessary
+all$V6 <- NULL #delete because unnecessary
+all$V7 <- NULL #delete because unnecessary
+all$V9 <- NULL #delete is only Validation
+all$V12 <- NULL #delete is only Validation
+all$V22 <- NULL #delete because shows NA
+
+
+all$V13 <- paste(all$V13, all$V14, all$V15, all$V16, all$V17, all$V18, all$V19, all$V20, all$V21) #takes all columns that could include words from the name and makes puts them in one, then delete all unnecessary columns
+all$V14 <- NULL
+all$V15 <- NULL
+all$V16 <- NULL
+all$V17 <- NULL
+all$V18 <- NULL
+all$V19 <- NULL
+all$V20 <- NULL
+all$V21 <- NULL
+
+#set column names
+names(all) <- c("Start", "End", "short", "Organism", "UniprotID", "Name" )
+names(fixed) <- c("Microbe", "Replicate", "Position", "Ref", "Alt")
+```
+
+
+### Nicely **run this**
+
+```{r}
+#take only the distinct (the ones without a duplicate) and put it in a data.frame
+all_dist <- distinct(all)
+fixed_dist <- distinct(fixed)
+
+#tidy it up
+all_dist_tidy <- all_dist
+all_dist_tidy$V22 <- paste(all_dist$V13, all_dist$V14, all_dist$V15, all_dist$V16, all_dist$V17, all_dist$V18, all_dist$V19, all_dist$V20, all_dist$V21) #takes all columns that could include words from the name and makes puts them in one, then delete all unnecessary columns
+all_dist_tidy <- all_dist_tidy %>% select(2, 3, 8, 10, 11, 22) #select only the columns that I want
+
+#set column names
+names(all_dist_tidy) <- c("Start", "End", "short", "Organism", "UniprotID", "Name" )
+names(fixed_dist) <- c("Microbe", "Replicate", "Position", "Ref", "Alt")
+```
+
+
+### More duplicates
+also looked at duplicates with excel (where you can easily compare only distinct columns) -> found that 19 rows are still duplicated (just have a different name; e.g. "hypothetical protein"); gives a table of the duplicated rows
+
+```{r}
+all_dup <- all_dist_tidy
+#if Start/End coordinates are duplicated dupsta/dupend = TRUE -> only the duplicates not the "original"
+all_dup$dupsta <- duplicated(all_dup$Start)
+all_dup$dupend <- duplicated(all_dup$End)
+
+#make a subset where only the duplicated starts are in
+all_dup_true <- subset(all_dup, all_dup$dupsta == TRUE)
+#make a subset where I also consider the End. Because if I only take the start there could be duplicates that are still not the same (e.g. A 10-50, B 10-45, with A on chromosome 1 and B on chromosome 2)
+all_dup_true <- subset(all_dup_true, all_dup_true$dupend == TRUE)
+names(all_dup_true) <- c("S", "E", "s", "O", "U", "N", "ds", "de") #here i have only the duplicated rows (not the "originals") -> set new column names to have it easier to compare, take only the fist letter
+
+setDT(all_dup_true) #make a data.table because the code below only works for data.tables, I think
+all_duplicates <- all_dup_true[all_dup, on = .(S = Start, E = End), nomatch = 0,
+              .(Start, End,  Organism, Name, short, UniprotID)]  #if the start and the end match the data from the duplicates then take the row, meaning we take the "originals" to make a table of all still duplicated data
+View(all_duplicates)
+
+```
+
+
+
+# Step 1)
+Based on the file alltogether_modified.lst.txt (with Genes coordinates and their function) --> Find which genes the SNPs are belonging to ?
+## AGTU.c01
+### Manually
+Try to find the answer to the question by just manually doing it but only for "AGTU.c01" to not have to much data.
+
+```{r}
+AGTU.c01.all <- subset(all, all$Organism == "AGTU.c01") #first find Genes belonging to AGTU.c01 -> make subset
+AGTU.c01.fixed <- subset(fixed, fixed$Microbe == "AGTU.c01") #find  all SNPs belonging to AGTU.c01 -> make subset
+str(AGTU.c01.fixed)
+str(AGTU.c01.all)
+
+#compare Position to Start and End and find out which is bigger/smaller (only for first SNP of AGTU.c01); if position > start there is a TRUE, if position < End there is a true
+AGTU.c01.all$start.smaller <- AGTU.c01.fixed[1,3] > AGTU.c01.all$Start 
+AGTU.c01.all$end.smaller <- AGTU.c01.fixed[1,3] < AGTU.c01.all$End
+
+#look for Gene that the SNP belongs too. if no result the SNP is not in a Gene; There will be a TRUE in both start.smaller and end.smaller if the SNP is in the Gene
+AGTU.c01.all$Result <- AGTU.c01.all$start.smaller == AGTU.c01.all$end.smaller
+Result <- subset(AGTU.c01.all, AGTU.c01.all$Result == TRUE)
+View(Result)
+```
+
+### Automatically
+for all ATGU.c01 (explanation same as above); this actually does not work, because it's not fully codes. Like I gave up and searched for another solution which is below "Automatically in a new way".
+```{r}
+for (x in AGTU.c01.fixed$Position) {
+  start.smaller <- x > AGTU.c01.all$Start
+  end.smaller <- x < AGTU.c01.all$End 
+  output = start.smaller == end.smaller
+  AGTU.c01.all = cbind(AGTU.c01.all, output)
+  colnames(AGTU.c01.all)[ncol(AGTU.c01.all)] <- paste0("Result", x)
+  
+  for (x in 7:ncol(AGTU.c01.all)){
+    x <- AGTU.c01.all[,x]
+    print(AGTU.c01.all[(which(x == TRUE)),])
+  } #this last for searches each "Result" for a TRUE and gives me the row it is in
+}
+```
+
+### Automatically in a new way
+```{r}
+setDT(AGTU.c01.all)
+setDT(AGTU.c01.fixed) # converting to data.table
+ResultAGTU <- AGTU.c01.fixed[AGTU.c01.all, on = .(Position >= Start, Position <= End), nomatch = 0,
+         .(x.Position, Start, End, short, Organism, Name)]  #I basically make one data frame from two. I take only rows where Position >= Start and Position <= End; this gives me a data table where we see which position (SNP) belongs to which protein, if the SNP is not in a region where there is a gene there will be no entry in the data.table
+
+ResultAGTU <- ResultAGTU %>% arrange(x.Position) #rearange the rows 
+View(ResultAGTU)
+
+```
+
+
+## All data
+### With not nicely variables (comming from Tidy up data/Bullky)
+```{r}
+setDT(all); setDT(fixed) # converting to data.table in place
+Result <- fixed[all, on = .(Microbe = Organism, Position >= Start, Position < End), nomatch = 0,
+               .(x.Position, Start, End,  Organism,Microbe, Replicate, Name, short, Ref, Alt, UniprotID)]
+#Explanation see above (Automatically in a new way)
+Result <- Result %>% arrange(Organism, Replicate, x.Position)
+```
+
+
+### SNP in duplicates
+```{r}
+#look if any SNPs are in one of the still duplicated proteins (it's not the case, because then it would also appear in the Result but still to be sure!)
+setDT(all_duplicates)
+setDT(fixed_dist)
+
+
+Result_dup <- fixed_dist[all_duplicates, on = .(Microbe = Organism, Position >= Start, Position < End), nomatch = 0,
+                     .(x.Position, Start, End,  Organism,Microbe, Replicate, Name, short, Ref, Alt, UniprotID)]
+
+Result_dup_sorted <- Result_dup %>% arrange(Organism, Replicate, x.Position)
+
+hypothetical <- subset(Result_dup_sorted, Result_dup_sorted$Name == "hypothetical protein       ")
+
+```
+
+
+### With Tidy up data nicely **run this**
+```{r}
+setDT(all_dist_tidy)
+setDT(fixed_dist)
+Result <- fixed_dist[all_dist_tidy, on = .(Microbe = Organism, Position >= Start, Position < End), nomatch = 0,
+                .(x.Position, Start, End,  Organism,Microbe, Replicate, Name, short, Ref, Alt, UniprotID)]
+#Explanation see above (Automatically in a new way)
+Result_sorted <- Result %>% arrange(Organism, Replicate, x.Position)
+write.csv(Result_sorted, file="Result_sorted.csv")
+```
+
+
+# Step 2)
+Based on the gene fasta sequence (alltogether_modified.gen.fasta): BLAST the sequence of hypothetical proteins to see if a similar sequence is present in other microbes and try to infer a function by sequence similarity (and % of sequence similarity)
+
+BLAST is a program
+there are no really good matches!!
+
+
+
+# Step 3)
+Based on the Protein sequence (alltogether_modified.prt): define the consequence of the SNP: synonymous or nonsynonymous ? Calculate dN/dS (if applicable, because few SNPs but the code can be ready for more data)
+First I tried to do it by hand to later look if my code would work. I found a big mistake, that has to be discussed with Mado (Ref in SNPs does not correspond to Ref in fasta sequence!)
+
+## AGTU
+I tried to solve this question first again manually with only a subset of AGTU
+
+```{r}
+fasta_AGTU <- read.delim(file = "alltogether_modified.gen.fasta.AGTU.gen", sep = " ", header = FALSE)
+fasta_AGTU$Name <- paste(fasta_AGTU$V7, fasta_AGTU$V8, fasta_AGTU$V9, fasta_AGTU$V10 ) #puts the name of the Protein in one column
+fasta_AGTU_tidy <- fasta_AGTU %>% select(1, 2, 3, 4, 5, 6, 11) #take only rows that I will use
+names(fasta_AGTU_tidy) <- c("DNA", "Start", "End", "short", "Organism", "UniprotID", "Name" ) #set column names
+
+DNArowAGTU <- ifelse(fasta_AGTU_tidy$DNA == "", rownames(fasta_AGTU_tidy), "") #prints the row number if there is nothing in the first column -> this means that a new protein starts
+DNArowAGTU_start <- subset(DNArowAGTU, DNArowAGTU!="") #takes the numbers of the rows with nothing in them to see from which row to which row the nucleotide sequence goes
+DNArowAGTU_start <- as.numeric(DNArowAGTU_start)
+DNArowAGTU_end <- DNArowAGTU_start-1
+DNArowAGTU_end <- c(DNArowAGTU_end[2:5], nrow(fasta_AGTU_tidy)) #this gives me a vector where the first number is the end of the first protein and the last number is the total number of rows in my data
+
+
+#with the numbers of the DNArow make subsets of the nucleotide sequence
+fasta_AGTU_sub <- subset(fasta_AGTU_tidy[1:19,])
+fasta_AGTU_sub <- subset(fasta_AGTU_tidy[20:49,])
+fasta_AGTU_sub <- subset(fasta_AGTU_tidy[50:63,])
+fasta_AGTU_sub <- subset(fasta_AGTU_tidy[64:82,])
+fasta_AGTU_sub <- subset(fasta_AGTU_tidy[83:89,])
+
+DNAseqAGTU <- c("") #makes a empty vector where all DNArows will go in
+for (x in fasta_AGTU_sub$DNA) {
+  DNAseqAGTU_x <- x
+  DNAseqAGTU <- c(DNAseqAGTU,DNAseqAGTU_x)
+} #Adds all DNA rows into one vector
+R1_AGTU <- unlist(strsplit(DNAseqAGTU, split = "")) #this puts all characters as their own "value" to have a continuous line of all nucleotides
+```
+
+
+
+
+
+## Error search
+Because there was an error which I found when trying out by hand I wanted to quickly look for other errors. Even though the code from the AGTU is not nice I quickly did it with all data. The Error is that in the gen.fasta the reference nucleotide is not the same as in the SNP data the reference is.
+
+### DNArows
+```{r}
+fasta_all <- read.delim(file = "alltogether_modified.gen.fasta - not nicely.gen", sep = " ", header = FALSE)
+fasta_all$Name <- paste(fasta_all$V7, fasta_all$V8, fasta_all$V9, fasta_all$V10, fasta_all$V11, fasta_all$V12)
+
+fasta_all_tidy <- fasta_all %>% select(1, 2, 3, 4, 5, 6, 14)
+names(fasta_all_tidy) <- c("DNA", "Start", "End", "short", "Organism", "UniprotID", "Name" )
+
+
+DNArow <- ifelse(fasta_all_tidy$DNA == "", rownames(fasta_all_tidy), "")
+DNArow_start <- subset(DNArow, DNArow!="")
+DNArow_start <- as.numeric(DNArow_start)
+DNArow_end <- c(DNArow_start[2:length(DNArow_start)]-1, nrow(fasta_all_tidy))
+
+
+# DNArow_start:  1  20  50  64  83  90 137 143 166 189 212 238 244 267 290 313 333 358 393 407 421 442 463 484
+# DNArow_end:   19  49  63  82  89 136 142 165 188 211 237 243 266 289 312 332 357 392 406 420 441 462 483 504
+```
+
+### Make subset
+```{r}
+fasta_all_sub <- subset(fasta_all_tidy[1:19,])
+fasta_all_sub <- subset(fasta_all_tidy[20:49,])
+fasta_all_sub <- subset(fasta_all_tidy[50:63,])
+fasta_all_sub <- subset(fasta_all_tidy[64:82,])
+fasta_all_sub <- subset(fasta_all_tidy[83:89,])
+
+fasta_all_sub <- subset(fasta_all_tidy[90:136,])
+fasta_all_sub <- subset(fasta_all_tidy[137:142,])
+fasta_all_sub <- subset(fasta_all_tidy[143:165,])
+fasta_all_sub <- subset(fasta_all_tidy[166:188,])
+fasta_all_sub <- subset(fasta_all_tidy[189:211,])
+
+fasta_all_sub <- subset(fasta_all_tidy[212:237,])
+fasta_all_sub <- subset(fasta_all_tidy[238:243,])
+fasta_all_sub <- subset(fasta_all_tidy[244:266,])
+fasta_all_sub <- subset(fasta_all_tidy[267:289,])
+fasta_all_sub <- subset(fasta_all_tidy[290:312,])
+
+fasta_all_sub <- subset(fasta_all_tidy[313:332,])
+fasta_all_sub <- subset(fasta_all_tidy[333:357,])
+fasta_all_sub <- subset(fasta_all_tidy[358:392,])
+fasta_all_sub <- subset(fasta_all_tidy[393:406,])
+fasta_all_sub <- subset(fasta_all_tidy[407:420,])
+
+fasta_all_sub <- subset(fasta_all_tidy[421:441,])
+fasta_all_sub <- subset(fasta_all_tidy[442:462,])
+fasta_all_sub <- subset(fasta_all_tidy[463:483,])
+fasta_all_sub <- subset(fasta_all_tidy[484:504,])
+```
+
+### DNA vectors
+```{r}
+DNAseq <- c("")
+for (x in fasta_all_sub$DNA) {
+  DNAseq_x <- x
+  DNAseq <- c(DNAseq,DNAseq_x)
+}
+R05 <- unlist(strsplit(DNAseq, split = "")) #not forget to change the number of the R for each subset!!!
+
+```
+
+### Get results
+```{r}
+Result_fasta <- Result_sorted #get this from R script Step-by-step
+Result_fasta <- Result_fasta %>% select(1,2,3,4,6,7,8,9,10)
+
+Result_fasta$position <- (Result_fasta$x.Position - Result_fasta$Start) + 1 #this gives me the number I have to count to get to the right nucleotide if I have the gene seqence alligned (+1 otherwise the number is off by 1)
+Result_fasta$nr <- (Result_fasta$End - Result_fasta$Start) + 1 #this gives me the total number of nucleotides in the gene data (+1 otherwise the number is off by 1)
+
+#the comment is the result; Attention: do not sort the Result_sorted new! (just leave it as it is now: **Result_sorted <- Result %>% arrange(Organism, Replicate, x.Position)**)
+R01[196] #c
+R02[887] #T
+R03[469] #G
+R04[94]  #A
+R05[255] #C
+R06[1517] #G
+R07[72] #T
+R08[988] #G
+R09[1190] #C
+R10[1190] #C
+R11[336] #C
+R12[131] #A
+R13[830] #A
+R14[1198] #C
+R15[845] #G
+R16[403] #T
+R17[194] #T
+R18[1559] #C
+R19[296] #G
+R20[272] #A
+R21[766] #G
+R22[766] #G
+R23[766] #G
+R24[766] #G
+
+
+fasta_ref <- c(R01[196], R02[887], R03[469], R04[94], R05[255], R06[1517], R07[72], R08[988], R09[1190], R10[1190], R11[336], R12[131], R13[830], R14[1198], R15[845], R16[403], R17[194], R18[1559], R19[296], R20[272], R21[766], R22[766], R23[766], R24[766]) #make one vector of all Results
+
+
+Result_fasta$fasta <- fasta_ref #put Vecor in data.frame
+Result_fasta <- Result_fasta %>% select(1,10,2,3,11,4,5,6,7,12,8,9) #rearange so that one can see easily if the Ref from gen.fasta is the same as from SNP data.
+```
+
+
+
+### SNP analysis
+Here we analyse all SNPs in respect to the ones we find are on a gene. We do this to maybe understand the error.
+
+```{r}
+SNP <- read.delim(file = "allSNPs_w_gene_position_spaced.tsv", sep = " ", header = FALSE) #Space the data properly in VSC and then import it
+Pos <- read.csv(file = "Result_sorted.csv")
+#Pos <- fixed_dist #this is for when I want to look at all fixed SNPs Mado gave me in the Document: "FixedMutations_OverTime.txt"
+
+setDT(SNP)
+setDT(Pos) #make data.table
+ResultSNP <- Pos[SNP, on = .(Position = V3), nomatch = 0,
+                     .(x.Position, V3, Microbe, V2, V5, Replicate, V1, Ref, Alt, V4, V6, V7, V8, V9, V10, V11)] #put two data.tables together if the Position of the fixed SNP fitts the position of the one in all SNPs
+
+
+#because the ResultSNP is a huge table we split it for all fixed SNPs that are in the Result (because these are the ones we are interested in and the ones where the ref from the gen.fasta does not match the SNP ref) this could maybe help us to understand the Error but I do not think so. 
+SNP01 <- subset(ResultSNP, ResultSNP$x.Position == 83654)
+SNP02 <- subset(ResultSNP, ResultSNP$x.Position == 677536)
+SNP03 <- subset(ResultSNP, ResultSNP$x.Position == 703340)
+SNP04 <- subset(ResultSNP, ResultSNP$x.Position == 1372439)
+SNP05 <- subset(ResultSNP, ResultSNP$x.Position == 2351899)
+SNP06 <- subset(ResultSNP, ResultSNP$x.Position == 2863371)
+
+SNP07 <- subset(ResultSNP, ResultSNP$x.Position == 555455)
+
+SNP08 <- subset(ResultSNP, ResultSNP$x.Position == 181352)
+
+SNP09 <- subset(ResultSNP, ResultSNP$x.Position == 574130)
+SNP10 <- subset(ResultSNP, ResultSNP$x.Position == 574142)
+SNP11 <- subset(ResultSNP, ResultSNP$x.Position == 3711132)
+SNP12 <- subset(ResultSNP, ResultSNP$x.Position == 4436504)
+SNP13 <- subset(ResultSNP, ResultSNP$x.Position == 5466537)
+SNP14 <- subset(ResultSNP, ResultSNP$x.Position == 5466552)
+SNP15 <- subset(ResultSNP, ResultSNP$x.Position == 5466695)
+SNP16 <- subset(ResultSNP, ResultSNP$x.Position == 5466897)
+SNP17 <- subset(ResultSNP, ResultSNP$x.Position == 5466905)
+SNP18 <- subset(ResultSNP, ResultSNP$x.Position == 5643748)
+
+SNP19 <- subset(ResultSNP, ResultSNP$x.Position == 699272)
+SNP20 <- subset(ResultSNP, ResultSNP$x.Position == 1281972)
+SNP21 <- subset(ResultSNP, ResultSNP$x.Position == 1628511)
+SNP22 <- subset(ResultSNP, ResultSNP$x.Position == 2587322)
+SNP23 <- subset(ResultSNP, ResultSNP$x.Position == 3643534)
+
+SNP24 <- subset(ResultSNP, ResultSNP$x.Position == 1584485)
+
+SNP25 <- subset(ResultSNP, ResultSNP$x.Position == 2116572)
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
