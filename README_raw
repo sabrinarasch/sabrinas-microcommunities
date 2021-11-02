@@ -39,54 +39,133 @@
 \tableofcontents
 \newpage
 
-\section{First Data}
-    \begin{itemize}
-        \item Contains Data and R Code that was used to solve the fist Steps (see R Notebook ''Step--by--step.Rmd'' for more Information on the Steps)
-        \item Original Files
-        \begin{itemize}
-            \item alltogether\_modified.prt
-            \item alltogether\_modified.gen.fasta.gen
-            \item alltogether\_modified.lst.txt
-            \item FixedMutations\_OverTime.txt
-            \item FixedMutations\_over\_time.pdf
-            \item FixedMutation\_over\_time\_Mado.pdf
-            \item allSNPs\_w\_gene\_position.tsv
-        \end{itemize}
-        \item Files manipulated in Visual Studio Code
-        \begin{itemize}
-            \item allSNPs\_w\_gene\_position\_spaced.tsv
-            \item alltogether\_modified.gen.fasta -- not nicely.gen
-            \item alltogether\_modified.gen.fasta.AGTU.gen
-        \end{itemize}
-        \item Outputs from R Notebook
-        \begin{itemize}
-            \item Result\_sorted.csv
-        \end{itemize}
-        \item Other Files
-        \begin{itemize}
-            \item By Hand.xlsx: Counted the nucleotides by hand to find the SNP reference from the gen.fasta data. This is where I found the Error
-            \item Confusion.xlsx: Excel table of not nicely search for the reference nucleotide from the gen.fasta data for the SNPs. 
-        \end{itemize}
-        \item Code: Step-by-step.Rmd
-    \end{itemize}
-    
-    
-\section{Infos}
-    \begin{itemize}
-       \item Contains documents that have an informational purpose.
-        \item Introduction paper: the first paper Mado gave me, that explains a lot about my data and why I do this project.
-        \item Meetings: Notes from meetings with Mado
-        \item Presentation in Labmeeting 23.09. (Mado): PPP from Mado about her talk in the Labmeeting
-    \end{itemize}
-    
-    
-\section{Papers}
-    \begin{itemize}
-        \item Contains papers that could be useful.
-        \item N.Surname -- Year -- Title
-    \end{itemize}
+\input{1. First Data}
 
+\input{2. Infos}
 
-
-
+\input{3. Papers}
+    
 \end{document}
+
+
+
+
+\section{First Data}
+Contains Data and R Code that was used to solve the fist Steps (see R Notebook ''Step--by--step--final--version.Rmd'' for more Information on the Steps)
+
+\subsection{Original Data}
+
+\begin{itemize}
+    \item allSNPs\_w\_gene\_position.tsv \textit{data of all SNPs}
+    \item alltogether\_modified.gen.fasta.gen \textit{DNA sequence off all data}
+    \item alltogether\_modified.lst.txt \textit{Protein name with start/end}
+    \item alltogether\_modified.prt \textit{AA sequence off all data}
+    \item FixedMutations\_over\_time.pdf \textit{Plot}
+    \item FixedMutation\_over\_time\_Mado.pdf \textit{plot}
+    \item FixedMutations\_OverTime.txt \textit{41 fixed SNP positions}
+\end{itemize}
+
+
+\subsection{Results}
+Contains .csv files that were output of ''Step--by--step--final--version.Rmd'', .xlsx where the .csv are in an excel table.
+
+\begin{itemize}
+    \item Function\_of\_Proteins.pdf \textit{Here we have a list of the proteins belonging to the SNPs with more information.}
+    \item Pos\_AA.csv \& Pos\_AA.xlsx \textit{The aminoacid sequence to the proteins are listed}
+    \item Pos\_DNA.csv \& Pos\_DNA.xlsx \textit{The nucleotide sequence to the proteins are listed}
+    \item Result.xlsx \textit{all tables in one file}
+    \item Result\_sorted.csv \& Result\_sorted.xlsx \textit{The proteins belonging to the SNPs are listed}
+\end{itemize}
+
+
+\subsection{VSC manipulations}
+Files where I had to change something manually to add the file into R are stored here.
+
+\begin{itemize}
+    \item allSNPs\_w\_gene\_position\_spaced.tsv \textit{data of all SNPs}
+    \item alltogether\_modified.gen.fasta -- Kopie.txt \textit{DNA sequences belonging to the SNPs of AGTU.c01}
+    \item alltogether\_modified.gen.fasta -- not nicely.gen \textit{DNA sequences belonging to the SNPs}
+    \item alltogether\_modified.gen.fasta.AGTU.gen \textit{DNA sequences belonging to the SNPs of AGTU.c01 but nicer spaced}
+    \item alltogether\_modified.gen.fasta\_spaced.gen \textit{DNA sequence off all data}
+    \item alltogether\_modified.lst\_spaced.txt \textit{Protein name with start/end}
+    \item alltogether\_modified\_spaced.prt \textit{AA sequence off all data}
+\end{itemize}
+
+\subsection{Other Files}
+Files that are stored in the folder not belonging to another folder.
+
+\begin{itemize}
+    \item By Hand.xlsx \textit{Counted the nucleotides by hand to find the SNP reference from the gen.fasta data.}
+    \item Confusion.xlsx \textit{Excel table of not nicely search for the reference nucleotide from the gen.fasta data for the SNPs.}
+    \item Step--by--step.Rmd \textit{Code where I have everything in there (all trials done manually or with only little data).}
+    \item Step--by--step--final--version.Rmd \textit{This code can be used to solve the first Steps.}
+\end{itemize}
+
+
+\section{First Data}
+Contains Data and R Code that was used to solve the fist Steps (see R Notebook ''Step--by--step--final--version.Rmd'' for more Information on the Steps)
+
+\subsection{Original Data}
+
+\begin{itemize}
+    \item allSNPs\_w\_gene\_position.tsv \textit{data of all SNPs}
+    \item alltogether\_modified.gen.fasta.gen \textit{DNA sequence off all data}
+    \item alltogether\_modified.lst.txt \textit{Protein name with start/end}
+    \item alltogether\_modified.prt \textit{AA sequence off all data}
+    \item FixedMutations\_over\_time.pdf \textit{Plot}
+    \item FixedMutation\_over\_time\_Mado.pdf \textit{plot}
+    \item FixedMutations\_OverTime.txt \textit{41 fixed SNP positions}
+\end{itemize}
+
+
+\subsection{Results}
+Contains .csv files that were output of ''Step--by--step--final--version.Rmd'', .xlsx where the .csv are in an excel table.
+
+\begin{itemize}
+    \item Function\_of\_Proteins.pdf \textit{Here we have a list of the proteins belonging to the SNPs with more information.}
+    \item Pos\_AA.csv \& Pos\_AA.xlsx \textit{The aminoacid sequence to the proteins are listed}
+    \item Pos\_DNA.csv \& Pos\_DNA.xlsx \textit{The nucleotide sequence to the proteins are listed}
+    \item Result.xlsx \textit{all tables in one file}
+    \item Result\_sorted.csv \& Result\_sorted.xlsx \textit{The proteins belonging to the SNPs are listed}
+\end{itemize}
+
+
+\subsection{VSC manipulations}
+Files where I had to change something manually to add the file into R are stored here.
+
+\begin{itemize}
+    \item allSNPs\_w\_gene\_position\_spaced.tsv \textit{data of all SNPs}
+    \item alltogether\_modified.gen.fasta -- Kopie.txt \textit{DNA sequences belonging to the SNPs of AGTU.c01}
+    \item alltogether\_modified.gen.fasta -- not nicely.gen \textit{DNA sequences belonging to the SNPs}
+    \item alltogether\_modified.gen.fasta.AGTU.gen \textit{DNA sequences belonging to the SNPs of AGTU.c01 but nicer spaced}
+    \item alltogether\_modified.gen.fasta\_spaced.gen \textit{DNA sequence off all data}
+    \item alltogether\_modified.lst\_spaced.txt \textit{Protein name with start/end}
+    \item alltogether\_modified\_spaced.prt \textit{AA sequence off all data}
+\end{itemize}
+
+\subsection{Other Files}
+Files that are stored in the folder not belonging to another folder.
+
+\begin{itemize}
+    \item By Hand.xlsx \textit{Counted the nucleotides by hand to find the SNP reference from the gen.fasta data.}
+    \item Confusion.xlsx \textit{Excel table of not nicely search for the reference nucleotide from the gen.fasta data for the SNPs.}
+    \item Step--by--step.Rmd \textit{Code where I have everything in there (all trials done manually or with only little data).}
+    \item Step--by--step--final--version.Rmd \textit{This code can be used to solve the first Steps.}
+\end{itemize}
+
+\section{Infos}
+Contains documents that have an informational purpose.
+
+    \begin{itemize}
+        \item Introduction paper.pdf \textit{The first paper Mado gave me, that explains a lot about my data and why I do this project.}
+        \item Meetings.docx \textit{Notes from meetings with Mado}
+        \item Presentation in Labmeeting 23.09. (Mado).pptx \textit{PPP from Mado about her talk in the Labmeeting}
+    \end{itemize}
+   
+   
+   \section{Papers}
+Contains papers that could be useful.
+    \begin{itemize}
+        \item N.Surname\_Year\_Title.pdf
+        \item P. Piccardi\_2019\_Toxicity drives facilitation between 4 bacterial species.pdf
+    \end{itemize}

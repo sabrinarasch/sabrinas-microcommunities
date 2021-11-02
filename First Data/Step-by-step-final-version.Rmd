@@ -1,0 +1,339 @@
+---
+title: "Step-by-step-final-version"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+# Introduction
+This version of the code contains the code that is really necessary to get to the wanted result.
+The "Step-by-step" contains each step that I was going through to find a solution. 
+
+## Documents
+alltogether_modified.prt
+alltogether_modified.gen.fasta.gen
+alltogether_modified.lst.txt
+FixedMutations_OverTime.txt
+FixedMutations_over_time.pdf
+FixedMutation_over_time_Mado.pdf
+allSNPs_w_gene_position.tsv
+
+Github: https://github.com/banklab/sabrinas-microcommunities
+
+
+## Tasks
+Step-by-step: The plot shows the fixed mutations over time and the list of those 41 SNPs with their coordinates and the specie/replicon (FixedMutations_OverTime.txt)
+
+Step 1) Based on the file alltogether_modified.lst.txt (with Genes coordinates and their function) --> Find which genes the SNPs are belonging to ?
+
+Step 2) Based on the gene fasta sequence (alltogether_modified.gen.fasta): BLAST the sequence of hypothetical proteins to see if a similar sequence is present in other microbes and try to infer a function by sequence similarity (and % of sequence similarity)
+
+Step 3) Based on the Protein sequence (alltogether_modified.prt): define the consequence of the SNP: synonymous or nonsynonymous ? Calculate dN/dS (if applicable, because few SNPs but the code can be ready for more data)
+
+
+# General Setup 
+## Import Data
+In file "alltogether_modified.lst" mannually (in VSC) find "|" and replace with "space", so that import is a data.frame, add several spaces at the end of the first row so that there is enough space for all words of the name of the protein (because the Proteins do not have the same nr. of words in the name)
+
+```{r, message = FALSE}
+#set working directory to Source file location
+setwd("C:/Users/sabri/OneDrive/Desktop/HS21/Bachelor thesis/First Data") 
+
+#load packages
+library(dplyr)
+library(data.table)
+
+#import data files and have a general look at them
+fixed <- read.delim(file = "C:/Users/sabri/OneDrive/Desktop/HS21/Bachelor thesis/First Data/Original Data/FixedMutations_OverTime.txt")
+all <- read.delim(file = "C:/Users/sabri/OneDrive/Desktop/HS21/Bachelor thesis/First Data/VSC manipulations/alltogether_modified.lst_spaced.txt", sep = " " , header = FALSE)
+```
+
+
+## Tidy up data
+```{r}
+#take only the distinct (the ones without a duplicate) and put it in a data.frame
+all_dist <- distinct(all)
+fixed_dist <- distinct(fixed)
+
+#tidy it up
+all_dist_tidy <- all_dist
+all_dist_tidy$V22 <- paste(all_dist$V13, all_dist$V14, all_dist$V15, all_dist$V16, all_dist$V17, all_dist$V18, all_dist$V19, all_dist$V20, all_dist$V21) #takes all columns that could include words from the name and makes puts them in one, then delete all unnecessary columns
+all_dist_tidy <- all_dist_tidy %>% select(2, 3, 8, 10, 11, 22) #select only the columns that I want
+
+#set column names
+names(all_dist_tidy) <- c("Start", "End", "short", "Organism", "UniprotID", "Name" )
+names(fixed_dist) <- c("Microbe", "Replicate", "Position", "Ref", "Alt")
+```
+
+
+# Step 1)
+```{r}
+setDT(all_dist_tidy)
+setDT(fixed_dist) # converting to data.table
+Result <- fixed_dist[all_dist_tidy, on = .(Microbe = Organism, Position >= Start, Position < End), nomatch = 0,
+                .(x.Position, Start, End,  Organism,Microbe, Replicate, Name, short, Ref, Alt, UniprotID)]
+#I basically make one data.frame from two. I take only rows where Position >= Start and Position <= End; this gives me a data table where we see which position (SNP) belongs to which protein, if the SNP is not in a region where there is a gene there will be no entry in the data.table
+
+Result_sorted <- Result %>% arrange(Organism, Start, x.Position)
+#write.csv(Result_sorted, file="C:/Users/sabri/OneDrive/Desktop/HS21/Bachelor thesis/First Data/Results/Result_sorted.csv")
+```
+
+
+# Step 2)
+Based on the gene fasta sequence (alltogether_modified.gen.fasta): BLAST the sequence of hypothetical proteins to see if a similar sequence is present in other microbes and try to infer a function by sequence similarity (and % of sequence similarity)
+
+BLAST is a program
+there are no really good matches!!
+
+# Step 3)
+Based on the Protein sequence (alltogether_modified.prt): define the consequence of the SNP: synonymous or nonsynonymous ? Calculate dN/dS (if applicable, because few SNPs but the code can be ready for more data)
+First I tried to do it by hand to later look if my code would work. I found a big mistake, that has to be discussed with Mado (Ref in SNPs does not correspond to Ref in fasta sequence!)
+
+## DNA sequence
+In file "alltogether_modified.gen.fasta.gen" mannually (in VSC) find "|" and replace with "space", so that import is a data.frame, add several spaces at the end of the first row so that there is enough space for all words of the name of the protein (because the Proteins do not have the same nr. of words in the name)
+
+### read fasta.sequence
+```{r}
+fasta_all <- read.delim(file = "C:/Users/sabri/OneDrive/Desktop/HS21/Bachelor thesis/First Data/VSC manipulations/alltogether_modified.gen.fasta_spaced.gen", sep = " ", header = FALSE)
+
+#tidy it up
+fasta_all_tidy <- fasta_all
+fasta_all_tidy$V26 <- paste(fasta_all_tidy$V15, fasta_all_tidy$V16, fasta_all_tidy$V17, fasta_all_tidy$V18, fasta_all_tidy$V19, fasta_all_tidy$V20, fasta_all_tidy$V21, fasta_all_tidy$V22, fasta_all_tidy$V23, fasta_all_tidy$V24, fasta_all_tidy$V25) #takes all columns that could include words from the name and makes puts them in one, then delete all unnecessary columns
+fasta_all_tidy <- fasta_all_tidy %>% select(1, 6, 7, 9, 12, 13, 26) #select only the columns that I want
+colnames(fasta_all_tidy) <- c("DNA", "Start", "End", "Short", "Organism", "UniprotID", "Name")
+```
+
+### DNArow numbers
+Now I want a table where the DNA sequence is in one row. For that I need to know from which row to which row one protein goes. 
+```{r}
+DNArow <- ifelse(fasta_all_tidy$DNA == "", rownames(fasta_all_tidy), "") # getting the number of the row where there is nothing in the column DNA
+DNArow_start <- subset(DNArow, DNArow!="") # selecting only the rows where there is actually a number
+DNArow_start <- as.numeric(DNArow_start)
+DNArow_end <- c(DNArow_start[2:length(DNArow_start)]-1, nrow(fasta_all_tidy)) #calculating the end row of the "protein", meaning that I take the second entry in DNArow_start and subtract 1. at the end I add the number of rows the table has. I'm doing this to be able to automatically past all rows together belonging to one protein. 
+```
+
+### Add these columns
+If I want to add specific columns to my final data table I have to make a vector with the things I want to ad.
+```{r}
+# I want the short name of the protein to be able to search for it
+DNANameshort <- ifelse(fasta_all_tidy$Short == "", "",fasta_all_tidy$Short) 
+DNANameshort <- subset(DNANameshort, DNANameshort!="")
+
+# I want the start of the protein
+DNAStart <- ifelse(fasta_all_tidy$Start == "", "",fasta_all_tidy$Start) 
+DNAStart <- subset(DNAStart, DNAStart!="")
+
+# I want the End of the protein
+DNAEnd <- ifelse(fasta_all_tidy$End == "", "",fasta_all_tidy$End) 
+DNAEnd <- subset(DNAEnd, DNAEnd!="")
+
+# I want the Organism of the protein
+DNAOrganism <- ifelse(fasta_all_tidy$Organism == "", "",fasta_all_tidy$Organism) 
+DNAOrganism <- subset(DNAOrganism, DNAOrganism!="")
+```
+
+
+
+### making the DNA sequence table
+```{r}
+DNA_table <- as.data.frame(c()) #empty data frame to Start
+for (i in 1:length(DNArow_start)){
+  #this pastes together the entries in DNA from the DNArow_start till DNArow_end making the sequence one vector 
+  DNAconcatenated <-paste0(fasta_all_tidy$DNA[DNArow_start[i]:DNArow_end[i]], collapse = "")
+  #making a table where we have the sequence and the short name of the protein (carefull: if you want to add another element to the table make a vector where these elements are included and add it to the c())
+  DNA_table <- rbind(DNA_table,c(DNAconcatenated,DNANameshort[i], DNAStart[i], DNAEnd[i], DNAOrganism[i]))
+}
+
+colnames(DNA_table) <- c("DNA_seqence","Shortname", "DNAStart", "DNAEnd", "DNAOrganism")
+```
+
+
+### fitting DNA table and Result
+```{r}
+setDT(DNA_table)
+setDT(Result_sorted)
+Result_sorted$Start <- as.character(Result_sorted$Start)
+Result_sorted$End <- as.character(Result_sorted$End)
+# change the formate of the two table and some columns so that they fit together
+
+
+DNA_Result <- Result_sorted[DNA_table, on = .(short = Shortname, Start = DNAStart, End = DNAEnd, Organism = DNAOrganism), nomatch = 0,
+                .(x.short, Start, End, Organism, DNA_seqence, Shortname, DNAStart, DNAEnd, DNAOrganism)]
+#making one data table which has the short name, start, end, organism, from both the Result and the DNA tables and of course the DNA_sequence
+
+DNA_Result_sorted <- DNA_Result %>% arrange(Organism, Start)
+
+```
+
+
+### calculations
+```{r}
+Pos_DNA <- DNA_Result
+Pos_DNA$Position <- Result_sorted$x.Position
+Pos_DNA <- Pos_DNA %>% select(10, 2, 3, 4, 1, 5)
+
+# change formate to be able to make calculations
+Pos_DNA$End <- as.numeric(Pos_DNA$End)
+Pos_DNA$Start <- as.numeric(Pos_DNA$Start)
+Pos_DNA$Position <- as.numeric(Pos_DNA$Position)
+
+
+
+Pos_DNA$seq_length <- (Pos_DNA$End - Pos_DNA$Start)+1 #this gives me the total number of nucleotides in the gene data (+1 otherwise the number is off by 1)
+
+Pos_DNA$Place <- (Pos_DNA$Position - Pos_DNA$Start) + 1 #this gives me the number I have to count to get to the right nucleotide if I have the gene seqence alligned (+1 otherwise the number is off by 1)
+```
+
+
+### finding the nucleotide
+```{r}
+
+nucleotide <- c() #make a empty vector
+for (i in 1:nrow(Pos_DNA)) {
+    # for each row take the DNA_sequence and put it in a vector so that all nucleotides are seperated
+    temp_DNAseq <- unlist(strsplit(Pos_DNA$DNA_seqence[i], split = ""))
+    # get the nucleotide belonging to the position (place) of the SNP
+    temp_nucleotide <- temp_DNAseq[Pos_DNA$Place[i]]
+    # make a vector with all nucleotides
+    nucleotide <- c(nucleotide, c(temp_nucleotide))
+}
+
+# add the nucleotides to the Pos_DNA
+Pos_DNA$nucleotide <- nucleotide
+
+#write.csv(Pos_DNA, file = "C:/Users/sabri/OneDrive/Desktop/HS21/Bachelor thesis/First Data/Results/Pos_DNA.csv")
+```
+
+
+
+
+## AA sequence
+In file "alltogether_modified.prt" mannually (in VSC) find "|" and replace with "space", so that import is a data.frame, add several spaces at the end of the first row so that there is enough space for all words of the name of the protein (because the Proteins do not have the same nr. of words in the name). Save as "alltogether_modified_spaced.prt".
+
+### read prt.sequence
+```{r}
+AA_all <- read.delim(file = "C:/Users/sabri/OneDrive/Desktop/HS21/Bachelor thesis/First Data/VSC manipulations/alltogether_modified_spaced.prt", sep = " ", header = FALSE)
+
+#tidy it up
+AA_all_tidy <- AA_all
+AA_all_tidy$V23 <- paste(AA_all_tidy$V15, AA_all_tidy$V16, AA_all_tidy$V17, AA_all_tidy$V18, AA_all_tidy$V19, AA_all_tidy$V20, AA_all_tidy$V21, AA_all_tidy$V22) #takes all columns that could include words from the name and makes puts them in one, then delete all unnecessary columns
+AA_all_tidy <- AA_all_tidy %>% select(1, 6, 7, 9, 12, 13, 23) #select only the columns that I want
+colnames(AA_all_tidy) <- c("AA", "Start", "End", "Short", "Organism", "UniprotID", "Name")
+```
+
+### AArow numbers
+Now I want a table where the AA sequence is in one row. For that I need to know from which row to which row one protein goes. 
+```{r}
+AArow <- ifelse(AA_all_tidy$AA == "", rownames(AA_all_tidy), "") # getting the number of the row where there is nothing in the column AA
+AArow_start <- subset(AArow, AArow!="") # selecting only the rows where there is actually a number
+AArow_start <- as.numeric(AArow_start)
+AArow_end <- c(AArow_start[2:length(AArow_start)]-1, nrow(AA_all_tidy)) #calculating the end row of the "protein", meaning that I take the second entry in AArow_start and subtract 1. at the end I add the number of rows the table has. I'm doing this to be able to automatically past all rows together belonging to one protein. 
+
+```
+
+### Add these columns
+If I want to add specific columns to my final data table I have to make a vector with the things I want to ad.
+```{r}
+# I want the short name of the protein to be able to search for it
+AANameshort <- ifelse(AA_all_tidy$Short == "", "",AA_all_tidy$Short) 
+AANameshort <- subset(AANameshort, AANameshort!="")
+
+# I want the start of the protein
+AAStart <- ifelse(AA_all_tidy$Start == "", "",AA_all_tidy$Start) 
+AAStart <- subset(AAStart, AAStart!="")
+
+# I want the End of the protein
+AAEnd <- ifelse(AA_all_tidy$End == "", "",AA_all_tidy$End) 
+AAEnd <- subset(AAEnd, AAEnd!="")
+
+# I want the Organism of the protein
+AAOrganism <- ifelse(AA_all_tidy$Organism == "", "",AA_all_tidy$Organism) 
+AAOrganism <- subset(AAOrganism, AAOrganism!="")
+```
+
+
+### making the AA sequence table
+```{r}
+AA_table <- as.data.frame(c()) #empty data frame to start
+for (i in 1:length(AArow_start)){
+  #this pastes together the entries in AA from the AArow_start till AArow_end making the sequence one vector 
+  AAconcatenated <-paste0(AA_all_tidy$AA[AArow_start[i]:AArow_end[i]], collapse = "")
+  #making a table where we have the sequence and the short name of the protein (carefull: if you want to add another element to the table make a vector where these elements are included and add it to the c())
+  AA_table <- rbind(AA_table,c(AAconcatenated,AANameshort[i], AAStart[i], AAEnd[i], AAOrganism[i]))
+}
+
+colnames(AA_table) <- c("AA_seqence","Shortname", "AAStart", "AAEnd", "AAOrganism")
+```
+
+
+### fitting AA table and Result
+```{r}
+setDT(AA_table)
+setDT(Result_sorted)
+Result_sorted$Start <- as.character(Result_sorted$Start)
+Result_sorted$End <- as.character(Result_sorted$End)
+# change the formate of the two table and some columns so that they fit together
+
+
+AA_Result <- Result_sorted[AA_table, on = .(short = Shortname, Start = AAStart, End = AAEnd, Organism = AAOrganism), nomatch = 0,
+                .(x.short, Start, End, Organism, AA_seqence, Shortname, AAStart, AAEnd, AAOrganism)]
+#making one data table which has the short name, start, end, organism, from both the Result and the AA tables and of course the AA_sequence
+
+AA_Result_sorted <- AA_Result %>% arrange(Organism, Start)
+
+```
+
+
+### calculations
+```{r}
+Pos_AA <- AA_Result
+Pos_AA$Position <- Result_sorted$x.Position
+Pos_AA <- Pos_AA %>% select(10, 2, 3, 4, 1, 5)
+
+# change formate to be able to make calculations
+Pos_AA$End <- as.numeric(Pos_AA$End)
+Pos_AA$Start <- as.numeric(Pos_AA$Start)
+Pos_AA$Position <- as.numeric(Pos_AA$Position)
+
+
+
+Pos_AA$number_AA <- ((Pos_AA$End - Pos_AA$Start)+1)/3 #this gives me the total number of AA in the gene data (+1 otherwise the number is off by 1); /3 because each AA consits of a codon (3 Nucleotides)
+
+Pos_AA$Place <- ceiling(((Pos_AA$Position - Pos_AA$Start) + 1)/3) #this gives me the number I have to count to get to the right AA if I have the gene seqence alligned (+1 otherwise the number is off by 1); with ceiling I always round the number up -> so I can get the position of the AA
+```
+
+
+### finding the nucleotide
+```{r}
+
+AminoAcid <- c() #make a empty vector
+for (i in 1:nrow(Pos_AA)) {
+    # for each row take the DNA_sequence and put it in a vector so that all AminoAcids are seperated
+    temp_AAseq <- unlist(strsplit(Pos_AA$AA_seqence[i], split = ""))
+    # get the AminoAcid belonging to the position (place) of the SNP
+    temp_AminoAcid <- temp_AAseq[Pos_AA$Place[i]]
+    # make a vector with all AminoAcids
+    AminoAcid <- c(AminoAcid, c(temp_AminoAcid))
+}
+
+# add the AminoAcids to the Pos_AA
+Pos_AA$AminoAcid <- AminoAcid
+
+#write.csv(Pos_AA, file = "C:/Users/sabri/OneDrive/Desktop/HS21/Bachelor thesis/First Data/Results/Pos_AA.csv")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
